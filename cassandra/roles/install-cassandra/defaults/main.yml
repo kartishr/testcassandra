@@ -1,0 +1,27 @@
+cluster_name: qat_cmsv_4
+hints_directory: /data4/cassandra/hints
+data_file_directories: /data0/cassandra/data
+commitlog_directory: /var/lib/cassandra/commitlog
+cdc_raw_directory: /data4/cassandra/cdc_raw
+saved_caches_directory: /data4/cassandra/saved_caches
+
+listen_address: "{{ host_ip }}"
+rpc_address: "{{ host_ip}}"
+seeds: "{{ host_ip }}"
+
+host_ip_address: "{{ host_ip }}"
+host_ip: "0.0.0.0"
+dc_name: qat_cmsv_pl_cass_4
+
+path: /nfs/infra/oracle/cassandra
+software_location: "{{ path }}/software"
+cassandra_version: 3.11.4
+apps: /apps
+cassandra_path: "{{ apps }}/cassandra"
+lib_path: /var/lib/cassandra
+
+username: cassandra
+nodes:
+  - node1
+  - node2
+  

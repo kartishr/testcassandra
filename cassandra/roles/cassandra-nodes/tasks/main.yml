@@ -1,0 +1,33 @@
+---
+- name: copy directory from remote to local
+  delegate_to: 127.0.0.1
+  run_once: true
+  become: false
+  shell: "scp -r  {{ username }}@{{ item }}:{{ cassandra_path }} {{ cassandra_path }}"
+  with_items: "{{ nodes }}"
+
+- name: Copy cassandra from local to nodes
+  copy: src=/tmp/cassandra dest=/apps owner=cassandra group=cassandra
+
+- name: Checking cassandra already Running or not
+  shell: "'{{ cassandra_path }}'/bin/nodetool status"
+  register: service_namenode_status
+  changed_when: false
+  ignore_errors: true
+
+- name: Cassandra start
+  shell: "'{{ cassandra_path }}'/conf/start_cassandra.sh"
+  when: service_namenode_status.rc == 1
+
+- name: Checking file alter file
+  stat: 
+    path: "{{ cassandra_path }}/conf/alter.txt"
+  register: alter
+
+- name: Nodetool repair
+  command: "'{{ cassandra_path }}'/bin/nodetool u jmxlocal -pw {{ jmx_pass }} repair -pr"
+  when: alter.stat.exists == false
+
+- name: create file for network topology created
+  file: path={{ cassandra_path }}/conf/alter.txt state=touch
+  when: alter.stat.exists == false

@@ -1,0 +1,229 @@
+---
+- include_vars: "{{ inventory_dir }}/secrets.yml"
+- name: Untar cassandra
+  unarchive:
+    src: "{{ software_location }}/apache_{{ cassandra_version }}/apache-cassandra-{{ cassandra_version }}-src.tar.gz"
+    dest: "{{ apps }}"
+    owner: cassandra
+    group: cassandra
+    remote_src: yes
+  changed_when: False
+
+- name: Symlink for cassandra - apache-cassandra-3.11.4-src --> /apps/cassandra
+  file:
+    src: "{{ apps }}/apache-cassandra-{{ cassandra_version }}-src"
+    dest: "{{ cassandra_path }}"
+    owner: cassandra
+    group: cassandra
+    state: link
+
+- name: Create logs and run for cassandra
+  file:
+    path: "{{ item }}"
+    owner: cassandra
+    group: cassandra
+    state: directory
+  with_items:
+     -  "{{ cassandra_path }}/logs"
+     - "{{ cassandra_path }}/run"
+     - /var/log/dse
+
+- name: Copy config_apache3114 to cassandra conf
+  copy:
+    src: "{{ path }}/reference_config/config_apache3114/"
+    dest: "{{ cassandra_path }}/conf/"
+    owner: cassandra
+    group: cassandra
+    remote_src: yes
+  changed_when: False
+
+- name: Profiles updating
+  copy: remote_src=True src=/home/cassandra/{{ item }} dest=/home/cassandra/{{ item }}.orig owner=cassandra group=cassandra
+  with_items:
+    - ".bash_profile"
+    - ".profile"
+    - ".bashrc"
+  ignore_errors: True
+  
+- name: Remove old profile files 
+  file: path=//home/cassandra/{{ item }} state=absent
+  with_items:
+    - ".bash_profile"
+    - ".profile"
+    - ".bashrc"
+  
+- name: Copy Profiles
+  copy:
+    src: "{{ path }}/scripts/cassandra_profile"
+    dest: ~/.profile
+    owner: cassandra
+    group: cassandra
+    remote_src: yes
+
+- name: Copy bashrc
+  copy:
+    src: "{{ path }}/scripts/bashrc"
+    dest: ~/.bashrc
+    owner: cassandra
+    group: cassandra
+    remote_src: yes
+
+- name: Untar Java Package
+  unarchive:
+    src: "{{ path }}/java_zulu.tar.gz"
+    dest: "{{ lib_path }}"
+    remote_src: yes
+  changed_when: False
+
+- name: Create symbolic link 
+  file:
+   src: "{{ lib_path }}/java_zulu"
+   dest: "{{ lib_path }}/openjdk8"
+   state: link
+
+- name: Updating cassandra.yml file
+  template: 
+    src: cassandra.j2
+    dest: "{{ cassandra_path }}/conf/cassandra.yaml"
+    owner: cassandra 
+    group: cassandra
+
+- name: Updating cassandra-env.sh file
+  template: 
+    src: cassandra-env.j2
+    dest: "{{ cassandra_path }}/conf/cassandra-env.sh"
+    owner: cassandra 
+    group: cassandra
+
+- name: Updating cassandra-rackdc.properties file
+  template: 
+    src: cassandra-rackdc.properties.j2
+    dest: "{{ cassandra_path }}/conf/cassandra-rackdc.properties"
+    owner: cassandra 
+    group: cassandra
+
+- name: Updating start cassandra file
+  template: 
+    src: start_cassandra.j2
+    dest: "{{ cassandra_path }}/conf/start_cassandra.sh"
+    owner: cassandra 
+    group: cassandra
+    mode: 755
+
+- name: Create directories & change permission on existing directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: cassandra
+    group: cassandra
+    mode: 0755
+    recurse: yes
+  with_items:
+     - "{{ lib_path }}/work"
+     - "{{ lib_path }}/ssl"
+  changed_when: False
+
+- name: Copy variable value to content for crt file
+  copy: content="{{ CARoot }}" dest="{{ lib_path }}/work/{{ inventory_hostname }}_CARoot.pem" owner=cassandra group=cassandra
+  changed_when: False
+
+- name: Copy variable value to content for crt file
+  copy: content="{{ intermediate }}" dest="{{ lib_path }}/work/{{ inventory_hostname }}_intermediate.pem" owner=cassandra group=cassandra
+  changed_when: False
+
+- name: ssl Bundle file creation
+  command: "touch {{ lib_path }}/work/{{ inventory_hostname }}_bundle.pem && cat {{ lib_path }}/work/{{ inventory_hostname }}_CARoot.pem {{ lib_path }}/work/{{ inventory_hostname }}_intermediate.pem >> {{ lib_path }}/work/{{ inventory_hostname }}_bundle.pem"
+  changed_when: False
+
+- name: Copy variable value to content for crt file
+  copy: content="{{ crt }}" dest="{{ lib_path }}/work/{{ inventory_hostname }}_crt.pem" owner=cassandra group=cassandra
+  changed_when: False
+
+- name: Copy variable value to content for private-key file
+  copy: content="{{ private_key }}" dest="{{ lib_path }}/work/{{ inventory_hostname }}_private-key.pem" owner=cassandra group=cassandra
+  changed_when: False
+
+- name: ssl pkcs12 file creation
+  command: "openssl pkcs12 -export -chain -in {{ lib_path }}/work/{{ inventory_hostname }}_crt.pem -inkey {{ lib_path }}/work/{{ inventory_hostname }}_private-key.pem -out {{ lib_path }}/work/{{ inventory_hostname }}-keystore.p12 -name {{ inventory_hostname }} -passin pass:{{ cert_passwd }} -passout pass:{{ store_passwd }} -CAfile {{ lib_path }}/work/{{ inventory_hostname }}_bundle.pem"
+  changed_when: False
+  ignore_errors: True
+
+- name: Importing keystore
+  command: "keytool -importkeystore -destkeystore {{ lib_path }}/work/{{ inventory_hostname }}-keystore.jks -srckeystore {{ lib_path }}/work/{{ inventory_hostname }}-keystore.p12 -alias {{ inventory_hostname }} -srcstoretype PKCS12 -deststoretype JKS -storepass {{ store_passwd }} -srcstorepass {{ store_passwd }}"
+  changed_when: False
+  ignore_errors: True
+
+- name: Creating truststore file
+  command: "keytool -importcert -noprompt -keystore {{ lib_path }}/work/{{ inventory_hostname }}-truststore.jks -alias {{ inventory_hostname }}-rootca -file {{ lib_path }}/work/{{ inventory_hostname }}_rootCA.pem -keypass {{ cert_passwd }} -storepass ${store_passwd}"
+  changed_when: False
+  ignore_errors: True
+  
+- name: copy jks files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ lib_path }}/ssl/"
+    owner: cassandra
+    group: cassandra
+    mode: 0664
+  with_items:
+    - "{{ lib_path }}/work/{{ inventory_hostname }}-keystore.jks"
+    - "{{ lib_path }}/work/{{ inventory_hostname }}-truststore.jks"
+  ignore_errors: True
+
+- name: Checking cassandra already Running or not
+  shell: "{{ cassandra_path }}/bin/nodetool status"
+  register: service_namenode_status
+  changed_when: false
+  ignore_errors: true
+
+- name: Cassandra start
+  shell: "{{ cassandra_path }}/conf/start_cassandra.sh"
+  when: service_namenode_status.rc == 1
+
+- name: Copy Scripts to cassandra path
+  copy:
+    src: "{{ path }}/scripts"
+    dest: "{{ lib_path }}"
+    owner: cassandra
+    group: cassandra
+    remote_src: yes
+
+- name: Cron jobs
+  cron:
+    name: "Execute script to get table size details from this cluster"
+    minute: "20"
+    hour: "02"
+    job: "/var/lib/cassandra/scripts/get_table_size_details.ksh >/tmp/get_table_size_details.log 2>&1"
+
+- name: Cron jobs
+  cron:
+   name: "Execute nodetool status on this cluster"
+   minute: "*/2"
+   hour: "*"
+   job: "/var/lib/cassandra/scripts/nodetool_status.ksh > /tmp/nodetool_status.log 2>&1"   
+
+- name: Checking file alter file
+  stat: 
+    path: {{ cassandra_path }}/conf/alter.txt
+  register: alter
+
+- name: Alter keyspaces to have networkToplologyStrategy
+  command: "{{ cassandra_path }}/bin/cqlsh --execute {{ item }}"
+  with_items:
+    - "ALTER KEYSPACE system_traces WITH REPLICATION = {'class' : 'NetworkTopologyStrategy', '{{ dc_name }}' : 3} AND durable_writes = true;"
+    - "ALTER KEYSPACE system_auth WITH REPLICATION = {'class' : 'NetworkTopologyStrategy', '{{ dc_name }}' : 3} AND durable_writes = true;"
+    - "ALTER KEYSPACE system_distributed WITH REPLICATION = {'class' : 'NetworkTopologyStrategy', '{{ dc_name }}' : 3} AND durable_writes = true;"
+  when: alter.stat.exists == false
+
+- name: Now create additional superuser, dseadmin for cassandra
+  command: "{{ cassandra_path }}/bin/cqlsh --execute {{ item }}"
+  with_items:
+    - "create role dseadmin with password = '{{ dseadmin }}' and SUPERUSER=true and LOGIN = true;"
+    - "create role opsadmin with password = '{{ opsadmin }}' and SUPERUSER=true and LOGIN = true;"
+    - "create role bkpadmin with password = '{{ bkpadmin }}' and SUPERUSER=true and LOGIN = true;"
+    - "alter role cassandra with password = '{{ cassandra_pass }}';"
+  when: alter.stat.exists == false
+
+- name: create file for network topology created
+  file: path={{ cassandra_path }}/conf/alter.txt state=touch
+  when: alter.stat.exists == false

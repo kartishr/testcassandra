@@ -1,0 +1,141 @@
+#!/bin/bash
+#
+# Wrapper script to start DDAC cassandra daemon running on this node
+# Written by Madhu Kangara  | initial version          | v.1.0   | 05/28/2019
+#
+DDAC_HOME=/apps/cassandra
+CASSANDRA_PIDFILE="${DDAC_HOME}/run/cassandra.pid"
+RETVAL=0
+NEED_NEWLINE=0
+CASSANDRA_USER=cassandra
+NAME="Apache Cassandra"
+OUTPUT_FILE="${DDAC_HOME}/logs/output.log"
+
+is_running()
+{
+    is_running_silent
+    RETVAL="$?"
+    case "$RETVAL" in
+      0) echo "$NAME is running";;
+      *) echo "$NAME is not running";;
+    esac
+    return "$RETVAL"
+}
+
+is_running_silent()
+{
+    if [ -f "${CASSANDRA_PIDFILE}" ]; then
+        pid=`cat "${CASSANDRA_PIDFILE}"`
+        grep -Eq "${CASSANDRA_PIDFILE}" "/proc/$pid/cmdline" 2>/dev/null && return 0
+        return 1
+    fi
+    return 3
+}
+
+do_stop()
+{
+    # Return
+    #   0 if daemon has been stopped
+    #   1 if daemon could not be stopped
+    #   other if a failure occurred
+    is_running_silent
+    RETVAL=$?
+    if [ $RETVAL -ne 0 ]; then
+      echo "$NAME is already stopped"
+      RETVAL=0
+      return 0
+    fi
+
+    # Will add following function later after fixing full logic 
+    #check
+
+    RETVAL=0
+
+    if [ -f "${CASSANDRA_PIDFILE}" ]; then
+        pid=`cat "${CASSANDRA_PIDFILE}"`
+    fi
+
+    echo "Stopping with kill -9 ${pid}"
+    kill -9 ${pid}
+    RETVAL=$?
+    if [ $RETVAL -eq 2 ]; then
+        return 1
+    fi
+    rm -f "${CASSANDRA_PIDFILE}"
+
+    return $RETVAL
+}
+
+do_start()
+{
+    # Check if Cassandra instance is actually up and running
+    #   0 if daemon has been stopped
+    #   1 if daemon could not be stopped
+    #   other if a failure occurred
+    is_running_silent
+    RETVAL=$?
+    if [ $RETVAL -ne 0 ]; then
+      echo "$NAME is already stopped. Proceeding with Start"
+      RETVAL=0
+    fi
+
+    RETVAL=0
+
+    if [ -f "${CASSANDRA_PIDFILE}" ]; then
+        pid=`cat "${CASSANDRA_PIDFILE}"`
+    fi
+  
+    # Check if ${DDAC_HOME} variable is defined
+    if [  -z "${DDAC_HOME}" ]; then
+      echo " DDAC_HOME variable not defined. Cannot start Cassandra instance"
+      return 1
+    fi
+
+    echo "Starting Cassandra instance"
+    nohup ${DDAC_HOME}/bin/cassandra -p ${CASSANDRA_PIDFILE} >${OUTPUT_FILE} 2>&1 &
+
+    RETVAL=$?
+    if [ $RETVAL -eq 2 ]; then
+        return 1
+    fi
+
+    return $RETVAL
+}
+
+# Starting the main 
+
+# Check if JAVA_HOME has been set for user: cassandra
+if [ -z "${JAVA_HOME}" ]; then
+    echo "No JAVA_HOME found. Please set and try again..."
+    return 1
+fi
+
+# Check if DDAC_HOME has been set for user: cassandra
+if [ -z "${DDAC_HOME}" ]; then
+    echo "No DDAC_HOME found. Please set and try again..."
+    return 1
+fi
+
+PIDDIR=`dirname ${CASSANDRA_PIDFILE}`
+if [ ! -d "$PIDDIR" ]; then
+    mkdir -p "$PIDDIR"
+    if [ ! -d "$PIDDIR" ]; then
+        echo "$PIDDIR can not be found. Please create and make writable for user: $CASSANDRA_USER"
+        exit 5
+    fi
+fi
+
+# ::TODO
+#owner=`stat -c %U "$PIDDIR"`
+#if [ "$owner" != "$CASSANDRA_USER" ]; then
+#    chown -R "$CASSANDRA_USER" "$PIDDIR"
+#    owner=`stat -c %U "$PIDDIR"`
+#    if [ "$owner" != "$CASSANDRA_USER" ]; then
+#        log_message_failure "$PIDDIR is not owned by user: $CASSANDRA_USER. Please change ownership."
+#        exit 5
+#    fi
+#fi
+
+echo "DDAC_HOME is ${DDAC_HOME} and JAVA_HOME is $JAVA_HOME"
+echo "CASSANDRA_PIDFILE is ${CASSANDRA_PIDFILE}"
+do_start

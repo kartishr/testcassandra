@@ -1,0 +1,12 @@
+---
+- hosts: first-node 
+  become: yes
+  roles:
+    #- prerequisite
+    - install-cassandra 
+
+      #- hosts: nodes
+      #become: yes
+      #roles:
+      #- prerequisite
+      #- cassandra-nodes

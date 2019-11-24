@@ -1,0 +1,57 @@
+[cassandra1]
+34.93.16.20
+
+[cassandra2]
+34.93.16.20
+
+[cassandra3]
+10.130.169.29 
+
+[cassandra4]
+10.130.169.29
+
+[cassandra5]
+10.130.169.29 
+
+[cassandra6]
+10.130.169.29 
+
+[nodes:children]
+cassandra2
+cassandra3
+cassandra4
+cassandra5
+cassandra6
+
+[first-node:children]
+cassandra1
+
+[all:vars]
+ansible_ssh_user=cassandra
+ansible_ssh_private_key_file=/home/vast/.ssh/id_rsa
+apps=/apps
+cassandra_path={{ apps }}/cassandra
+
+[cassandra1:vars]
+host_ip=10.160.0.7
+data_file_directories: /data0/cassandra/data
+
+[cassandra2:vars]
+host_ip=34.93.72.242
+data_file_directories: /data1/cassandra/data
+
+[cassandra3:vars]
+host_ip=34.93.72.242
+data_file_directories: /data2/cassandra/data
+
+[cassandra4:vars]
+host_ip=34.93.72.242
+data_file_directories: /data3/cassandra/data
+
+[cassandra5:vars]
+host_ip=34.93.72.242
+data_file_directories: /data4/cassandra/data
+
+[cassandra6:vars]
+host_ip=34.93.72.242
+data_file_directories: /data5/cassandra/data
