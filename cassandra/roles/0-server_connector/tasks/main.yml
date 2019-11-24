@@ -1,0 +1,43 @@
+- name: "Notify database provisioning start"
+  mail:
+    host: localhost
+    port: 25
+    from: "{{ from_email }}"
+    to: "{{ to_email }}"
+    subtype: html
+    subject: "Oracle Single Instance Database Job ID {{ job_id }} started"
+    body: '
+    <br>Server Name: {{ build_server }}
+    <br>Ansible Job ID: {{ job_id }}
+    <br>ServiceNow SYS ID: {{ snow_sys_id }}
+    <br>ServiceNow RITM ID: {{ snow_ritm_id }}
+    <br>Tower Job Template Name: {{ tower_job_name }}
+    '
+    secure: never
+
+- name: "Add database server to host group"
+  add_host:
+     hostname: "{{ build_server }}"
+     groupname: "db_server"
+     ansible_port: 22
+     ansible_user: "oracle"
+     ansible_connection: "ssh"
+
+- name: "Add dns server to host group"
+  add_host:
+     hostname: "{{ dns_server }}"
+     groupname: "dns_server"
+     ansible_port: 22
+     ansible_user: "oracle"
+     ansible_connection: "ssh"
+
+- name: "Set stats for job run"
+  set_stats:
+    data:
+      build_server: "{{ v_servername }}"
+      job_id: "{{ tower_job_id }}"
+      tower_job_name: "{{ tower_job_template_name }}"
+      snow_sys_id: "{{ snow_sys_id }}"
+      snow_ritm_id: "{{ snow_ritm_id }}"
+      from_email:   "{{ from_email }}"
+      to_email:     "{{ to_email }}"
