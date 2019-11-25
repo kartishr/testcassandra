@@ -1,19 +1,19 @@
-- name: "Notify database provisioning start"
-  mail:
-    host: localhost
-    port: 25
-    from: "{{ from_email }}"
-    to: "{{ to_email }}"
-    subtype: html
-    subject: "Oracle Single Instance Database Job ID {{ job_id }} started"
-    body: '
-    <br>Server Name: {{ build_server }}
-    <br>Ansible Job ID: {{ job_id }}
-    <br>ServiceNow SYS ID: {{ snow_sys_id }}
-    <br>ServiceNow RITM ID: {{ snow_ritm_id }}
-    <br>Tower Job Template Name: {{ tower_job_name }}
-    '
-    secure: never
+#- name: "Notify database provisioning start"
+#  mail:
+#    host: localhost
+#    port: 25
+#    from: "{{ from_email }}"
+#    to: "{{ to_email }}"
+#    subtype: html
+#    subject: "Oracle Single Instance Database Job ID {{ job_id }} started"
+#    body: '
+#    <br>Server Name: {{ build_server }}
+#    <br>Ansible Job ID: {{ job_id }}
+#    <br>ServiceNow SYS ID: {{ snow_sys_id }}
+#   <br>ServiceNow RITM ID: {{ snow_ritm_id }}
+#    <br>Tower Job Template Name: {{ tower_job_name }}
+#    '
+#    secure: never
 
 - name: "Add database server to host group"
   add_host:
