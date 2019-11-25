@@ -20,7 +20,7 @@
      hostname: "{{ build_server }}"
      groupname: "db_server"
      ansible_port: 22
-     ansible_user: "oracle"
+     ansible_user: "cassandra"
      ansible_connection: "ssh"
 
 - name: "Add dns server to host group"
@@ -28,7 +28,7 @@
      hostname: "{{ dns_server }}"
      groupname: "dns_server"
      ansible_port: 22
-     ansible_user: "oracle"
+     ansible_user: "cassandra"
      ansible_connection: "ssh"
 
 - name: "Set stats for job run"
