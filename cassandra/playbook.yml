@@ -2,7 +2,8 @@
 - hosts: first-node 
   become: yes
   roles:
-    #- prerequisite
+    - 0-server_connector
+    - prerequisite
     - install-cassandra 
 
       #- hosts: nodes
