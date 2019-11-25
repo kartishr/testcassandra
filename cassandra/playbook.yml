@@ -1,5 +1,5 @@
 ---
-- hosts: first-node 
+- hosts: localhost
   become: yes
   roles:
     - 0-server_connector
