@@ -204,7 +204,7 @@
 
 - name: Checking file alter file
   stat: 
-    path: {{ cassandra_path }}/conf/alter.txt
+    path: "{{ cassandra_path }}/conf/alter.txt"
   register: alter
 
 - name: Alter keyspaces to have networkToplologyStrategy
